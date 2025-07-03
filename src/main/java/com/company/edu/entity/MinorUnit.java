@@ -8,7 +8,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,8 +39,6 @@ public class MinorUnit {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "minorUnit", cascade = CascadeType.ALL)
-    private List<DetailedUnit> detailedUnits = new ArrayList<>();
 
     @OneToMany(mappedBy = "minorUnit")
     private List<Problem> problems = new ArrayList<>();

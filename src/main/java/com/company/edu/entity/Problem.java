@@ -7,7 +7,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
@@ -33,13 +33,11 @@ public class Problem {
     @JoinColumn(name = "minor_unit_id", nullable = false)
     private MinorUnit minorUnit;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "detailed_unit_id", nullable = false)
-    private DetailedUnit detailedUnit;
 
-    @Column(name = "problem_image_path")
-    private String problemImagePath;
+    @Column(name = "image_path")
+    private String imagePath;
 
+    @Column(name = "difficulty")
     private String difficulty;
 
     @Column(columnDefinition = "TEXT")
