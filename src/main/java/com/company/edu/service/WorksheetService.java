@@ -11,9 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,18 +30,19 @@ public class WorksheetService {
         // 1. 선택된 경로들에서 소단원명들 추출
         List<String> unitNames = extractUnitNames(request.getSelectedPaths());
 
-        // 2. 필터 조건 설정
-        List<String> difficulties = request.getSettings().getDifficulties();
-        String problemType = request.getSettings().getProblemType();
-        int problemCount = request.getSettings().getProblemCount();
-
-        // 3. 문제 조회
-        List<ProblemDTO> allProblems = problemRepository.findProblemsByUnitsAndFilters(
-                unitNames, difficulties, problemType
+        // 2. levelWeight를 기반으로 난이도별 문제 개수 계산
+        Map<String, Integer> difficultyTargets = calculateDifficultyTargets(
+                request.getSettings().getProblemCount(),
+                request.getSettings().getLevelWeight()
         );
 
-        // 4. 문제 수 제한 적용
-        List<ProblemDTO> selectedProblems = selectProblems(allProblems, problemCount);
+        // 3. 문제 타입 필터
+        String problemType = request.getSettings().getProblemType();
+
+        // 4. 난이도별로 문제 조회 및 선택
+        List<ProblemDTO> selectedProblems = selectProblemsByDifficulty(
+                unitNames, difficultyTargets, problemType
+        );
 
         // 5. 통계 정보 생성
         WorksheetResponse.WorksheetStatistics statistics = generateStatistics(unitNames, selectedProblems);
@@ -56,13 +55,128 @@ public class WorksheetService {
         return response;
     }
 
+    /**
+     * levelWeight 배열을 기반으로 난이도별 목표 문제 개수 계산
+     * @param totalCount 총 문제 개수
+     * @param levelWeight [하, 중하, 중, 상, 최상] 순서의 가중치 배열
+     * @return 난이도별 목표 개수 맵
+     */
+    private Map<String, Integer> calculateDifficultyTargets(int totalCount, List<Integer> levelWeight) {
+        Map<String, Integer> targets = new LinkedHashMap<>();
+
+        if (levelWeight == null || levelWeight.size() != 5) {
+            // 기본값: 중 난이도 기준
+            levelWeight = Arrays.asList(10, 30, 30, 25, 5);
+        }
+
+        String[] difficulties = {"하", "중하", "중", "상", "최상"};
+        int assignedTotal = 0;
+
+        // 처음 4개 난이도는 비율 계산
+        for (int i = 0; i < 4; i++) {
+            int count = Math.round((float) totalCount * levelWeight.get(i) / 100);
+            targets.put(difficulties[i], count);
+            assignedTotal += count;
+        }
+
+        // 마지막 난이도는 남은 개수 할당 (반올림 오차 보정)
+        targets.put(difficulties[4], totalCount - assignedTotal);
+
+        return targets;
+    }
+
+    /**
+     * 난이도별 목표에 맞춰 문제 선택
+     */
+    private List<ProblemDTO> selectProblemsByDifficulty(
+            List<String> unitNames,
+            Map<String, Integer> difficultyTargets,
+            String problemType
+    ) {
+        List<ProblemDTO> selectedProblems = new ArrayList<>();
+
+        for (Map.Entry<String, Integer> entry : difficultyTargets.entrySet()) {
+            String difficulty = entry.getKey();
+            int targetCount = entry.getValue();
+
+            if (targetCount <= 0) continue;
+
+            // 해당 난이도의 문제들 조회
+            List<ProblemDTO> availableProblems = problemRepository.findProblemsByUnitsAndFilters(
+                    unitNames,
+                    Collections.singletonList(difficulty),
+                    problemType
+            );
+
+            // 목표 개수만큼 선택 (부족하면 있는 만큼만)
+            int selectCount = Math.min(targetCount, availableProblems.size());
+
+            if (selectCount > 0) {
+                // 랜덤하게 선택하거나 순서대로 선택
+                Collections.shuffle(availableProblems); // 랜덤 선택을 위한 셔플
+                selectedProblems.addAll(availableProblems.subList(0, selectCount));
+            }
+
+            // 부족한 경우 로그 출력 (선택사항)
+            if (selectCount < targetCount) {
+                System.out.println("난이도 '" + difficulty + "' 문제 부족: 요청=" + targetCount + ", 실제=" + selectCount);
+            }
+        }
+
+        // 문제가 부족한 경우 다른 난이도에서 보충
+        int totalSelected = selectedProblems.size();
+        int totalTarget = difficultyTargets.values().stream().mapToInt(Integer::intValue).sum();
+
+        if (totalSelected < totalTarget) {
+            selectedProblems.addAll(fillShortage(unitNames, problemType, totalTarget - totalSelected, selectedProblems));
+        }
+
+        return selectedProblems;
+    }
+
+    /**
+     * 부족한 문제를 다른 난이도에서 보충
+     */
+    private List<ProblemDTO> fillShortage(
+            List<String> unitNames,
+            String problemType,
+            int shortage,
+            List<ProblemDTO> alreadySelected
+    ) {
+        List<ProblemDTO> additionalProblems = new ArrayList<>();
+
+        // 이미 선택된 문제 ID 목록
+        Set<Integer> selectedIds = alreadySelected.stream()
+                .map(ProblemDTO::getId)
+                .collect(Collectors.toSet());
+
+        // 모든 문제 조회 (난이도 제한 없음)
+        List<ProblemDTO> allAvailable = problemRepository.findProblemsByUnitsAndFilters(
+                unitNames, null, problemType
+        );
+
+        // 이미 선택된 문제 제외
+        List<ProblemDTO> candidates = allAvailable.stream()
+                .filter(p -> !selectedIds.contains(p.getId()))
+                .collect(Collectors.toList());
+
+        Collections.shuffle(candidates);
+
+        int fillCount = Math.min(shortage, candidates.size());
+        if (fillCount > 0) {
+            additionalProblems.addAll(candidates.subList(0, fillCount));
+        }
+
+        return additionalProblems;
+    }
+
     private List<String> extractUnitNames(List<String> selectedPaths) {
         List<String> unitNames = new ArrayList<>();
 
         for (String path : selectedPaths) {
             String[] parts = path.split(" > ");
 
-            if (parts.length >= 2) {
+            if (parts.length >= 1) {
                 // 학기 노드인 경우
                 if (parts.length == 1) {
                     String semesterInfo = parts[0];
@@ -127,27 +241,6 @@ public class WorksheetService {
         }
     }
 
-    private List<ProblemDTO> selectProblems(List<ProblemDTO> allProblems, int maxCount) {
-        if (allProblems.size() <= maxCount) {
-            return allProblems;
-        }
-
-        // 난이도별 균등 분배 로직
-        Map<String, List<ProblemDTO>> problemsByDifficulty = allProblems.stream()
-                .collect(Collectors.groupingBy(ProblemDTO::getDifficulty));
-
-        List<ProblemDTO> selectedProblems = new ArrayList<>();
-        int remainingCount = maxCount;
-
-        for (List<ProblemDTO> problems : problemsByDifficulty.values()) {
-            int countToSelect = Math.min(problems.size(), remainingCount / problemsByDifficulty.size());
-            selectedProblems.addAll(problems.subList(0, countToSelect));
-            remainingCount -= countToSelect;
-        }
-
-        return selectedProblems;
-    }
-
     private WorksheetResponse.WorksheetStatistics generateStatistics(List<String> unitNames, List<ProblemDTO> problems) {
         WorksheetResponse.WorksheetStatistics statistics = new WorksheetResponse.WorksheetStatistics();
 
@@ -161,13 +254,13 @@ public class WorksheetService {
         Double avgCorrectRate = problemRepository.getAverageCorrectRateByUnits(unitNames);
         statistics.setNationalAverageCorrectRate(avgCorrectRate != null ? avgCorrectRate : 75.0);
 
-        // 난이도별 분포
+        // 실제 선택된 문제들의 난이도별 분포 (실제 개수)
         WorksheetResponse.DifficultyDistribution distribution = new WorksheetResponse.DifficultyDistribution();
-        distribution.setLow(problemRepository.countProblemsByUnitsAndDifficulty(unitNames, "하"));
-        distribution.setMediumLow(problemRepository.countProblemsByUnitsAndDifficulty(unitNames, "중하"));
-        distribution.setMedium(problemRepository.countProblemsByUnitsAndDifficulty(unitNames, "중"));
-        distribution.setHigh(problemRepository.countProblemsByUnitsAndDifficulty(unitNames, "상"));
-        distribution.setVeryHigh(problemRepository.countProblemsByUnitsAndDifficulty(unitNames, "최상"));
+        distribution.setLow((int) problems.stream().filter(p -> "하".equals(p.getDifficulty())).count());
+        distribution.setMediumLow((int) problems.stream().filter(p -> "중하".equals(p.getDifficulty())).count());
+        distribution.setMedium((int) problems.stream().filter(p -> "중".equals(p.getDifficulty())).count());
+        distribution.setHigh((int) problems.stream().filter(p -> "상".equals(p.getDifficulty())).count());
+        distribution.setVeryHigh((int) problems.stream().filter(p -> "최상".equals(p.getDifficulty())).count());
 
         statistics.setDifficultyDistribution(distribution);
 
