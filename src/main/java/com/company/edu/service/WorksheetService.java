@@ -1,13 +1,27 @@
 package com.company.edu.service;
 
+import com.company.edu.common.code.error.UserErrorCode;
+import com.company.edu.common.customException.RestApiException;
+import com.company.edu.config.user.CustomUserDetails;
 import com.company.edu.dto.ProblemDTO;
 import com.company.edu.dto.WorksheetRequest;
 import com.company.edu.dto.WorksheetResponse;
+import com.company.edu.dto.user.CustomUserInfoDto;
 import com.company.edu.entity.Semesters;
+import com.company.edu.entity.Worksheet;
+import com.company.edu.entity.user.Member;
 import com.company.edu.repository.MinorUnitRepository;
 import com.company.edu.repository.ProblemRepository;
 import com.company.edu.repository.SemesterRepository;
+import com.company.edu.repository.WorksheetRepository;
+import com.company.edu.repository.user.MemberRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +39,9 @@ public class WorksheetService {
     private final MinorUnitRepository minorUnitRepository; // DetailedUnitRepository -> MinorUnitRepository
 
     private final SemesterRepository semesterRepository;
+
+    private final WorksheetRepository worksheetRepository;
+    private final MemberRepository memberRepository;
 
     public WorksheetResponse generateWorksheet(WorksheetRequest request) {
         // 1. 선택된 경로들에서 소단원명들 추출
@@ -265,5 +282,78 @@ public class WorksheetService {
         statistics.setDifficultyDistribution(distribution);
 
         return statistics;
+    }
+    @Transactional
+    public void saveWorksheet(WorksheetRequest.WorksheetCreateRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RestApiException(UserErrorCode.NOT_ACCESS_AUTHORITY);
+        }
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        CustomUserInfoDto member = userDetails.getMember();
+        Member findMember = memberRepository.findById(member.getMemberId()).orElseThrow(
+                () -> new RestApiException(UserErrorCode.NOT_FOUND_USER)
+        );
+        if (!findMember.getMemberId().equals(request.getAuthorId())) {
+            throw new RestApiException(UserErrorCode.NOT_ACCESS_AUTHORITY);
+        }
+        Worksheet worksheet = Worksheet.generateEntity(request, findMember);
+        worksheetRepository.save(worksheet);
+    }
+
+    public WorksheetResponse.WorksheetListResponse getWorksheet(String page, String size) {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RestApiException(UserErrorCode.NOT_ACCESS_AUTHORITY);
+        }
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        CustomUserInfoDto member = userDetails.getMember();
+        Member memberEntity = memberRepository.findById(member.getMemberId()).orElseThrow(
+                () -> new RestApiException(UserErrorCode.NOT_FOUND_USER)
+        );
+
+        int pageNumber = Integer.parseInt(page);
+        int pageSize = Integer.parseInt(size);
+
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Page<Worksheet> worksheetPage = worksheetRepository.findByStatusAndAuthorId(Worksheet.Status.ACTIVE, memberEntity, pageable);
+
+        // DTO 변환
+        List<WorksheetResponse.WorksheetListResponse.WorksheetData.WorksheetInfo> content =
+                worksheetPage.getContent().stream()
+                        .map(worksheet -> WorksheetResponse.WorksheetListResponse.WorksheetData.WorksheetInfo.builder()
+                                .worksheetId(worksheet.getWorksheetId())
+                                .authorId(worksheet.getAuthorId().getMemberId())
+                                .tester(worksheet.getTester())
+                                .grade(worksheet.getGrade())
+                                .tag(worksheet.getTag())
+                                .title(worksheet.getTitle())
+                                .description(worksheet.getDescription())
+                                .problemCount(worksheet.getProblemCount())
+                                .contentRange(worksheet.getContentRange())
+                                .createdAt(worksheet.getCreatedAt())
+                                .build())
+                        .collect(Collectors.toList());
+
+        // 응답 구성
+        WorksheetResponse.WorksheetListResponse.WorksheetData data =
+                WorksheetResponse.WorksheetListResponse.WorksheetData.builder()
+                        .content(content)
+                        .empty(worksheetPage.isEmpty())
+                        .first(worksheetPage.isFirst())
+                        .last(worksheetPage.isLast())
+                        .number(worksheetPage.getNumber())
+                        .numberOfElements(worksheetPage.getNumberOfElements())
+                        .size(worksheetPage.getSize())
+                        .totalElements((int) worksheetPage.getTotalElements())
+                        .totalPages(worksheetPage.getTotalPages())
+                        .build();
+
+        return WorksheetResponse.WorksheetListResponse.builder()
+                .data(data)
+                .build();
     }
 }

@@ -1,5 +1,6 @@
 package com.company.edu.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import java.util.List;
 
@@ -17,4 +18,27 @@ public class WorksheetRequest {
         private boolean autoGrading;
         private String mockExamIncluded; // "모의고사 포함", "모의고사 제외", "모의고사만"
     }
+    @Data
+    public static class WorksheetCreateRequest {
+
+        private Long authorId;
+
+        private String tester;
+
+        private String grade;
+
+        private String semester;
+
+        private String tag;
+
+        private String title;
+
+        private int problemCount;
+
+        private String selectedDifficulty;
+
+        private String contentRange;
+    }
 }
+
+
