@@ -1,4 +1,4 @@
-package com.company.edu.entity;
+package com.company.edu.entity.problem;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 public class ProblemStats {
 
     @Id
-    private Integer problemId;
+    private Long problemId;
 
     @OneToOne
     @MapsId

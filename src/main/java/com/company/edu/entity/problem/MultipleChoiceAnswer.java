@@ -1,5 +1,4 @@
-package com.company.edu.entity;
-
+package com.company.edu.entity.problem;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -10,26 +9,27 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
-@Table(name = "minor_units")
+@Table(name = "multiple_choice_answers")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class MinorUnit {
+public class MultipleChoiceAnswer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "middle_unit_id", nullable = false)
-    private MiddleUnit middleUnit;
+    @OneToOne
+    @JoinColumn(name = "problem_id", nullable = false)
+    private Problem problem;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(name = "correct_option_number", nullable = false)
+    private Integer correctOptionNumber;
+
+    @Column(name = "total_options", nullable = false)
+    private Integer totalOptions;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -38,8 +38,4 @@ public class MinorUnit {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-
-    @OneToMany(mappedBy = "minorUnit")
-    private List<Problem> problems = new ArrayList<>();
 }

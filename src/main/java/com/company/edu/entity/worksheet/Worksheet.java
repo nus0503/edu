@@ -1,4 +1,4 @@
-package com.company.edu.entity;
+package com.company.edu.entity.worksheet;
 
 import com.company.edu.dto.WorksheetRequest;
 import com.company.edu.entity.user.Member;
@@ -11,6 +11,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "worksheet")
@@ -79,6 +81,15 @@ public class Worksheet {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = false)
     private Member authorId;
+
+    // 학습지-문제 연결 정보
+    @OneToMany(mappedBy = "worksheet", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("problemOrder ASC")
+    private List<WorksheetProblem> worksheetProblems = new ArrayList<>();
+
+    // 학습지 파일 정보
+    @OneToMany(mappedBy = "worksheet", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<WorksheetFile> worksheetFiles = new ArrayList<>();
 
 
 

@@ -1,4 +1,4 @@
-package com.company.edu.entity;
+package com.company.edu.entity.problem;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -19,7 +19,8 @@ import java.time.LocalDateTime;
 public class Problem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    @Column(name = "problem_id")
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "major_unit_id", nullable = false)
@@ -69,5 +70,9 @@ public class Problem {
 
     public enum ProblemType {
         주관식, 객관식, 서술형
+    }
+
+    public String getImageUrl() {
+        return imagePath != null ? imagePath : "default_problem_image.png";
     }
 }

@@ -1,4 +1,4 @@
-package com.company.edu.entity;
+package com.company.edu.entity.problem;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,26 +9,27 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
-@Table(name = "major_units")
+@Table(name = "subjective_answers")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class MajorUnit {
+public class SubjectiveAnswer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "semester_id", nullable = false)
-    private Semesters semesters;
+    @OneToOne
+    @JoinColumn(name = "problem_id", nullable = false)
+    private Problem problem;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(name = "correct_answer", columnDefinition = "TEXT")
+    private String correctAnswer;
+
+    @Column(name = "alternative_answers", columnDefinition = "TEXT")
+    private String alternativeAnswers; // JSON 형식의 대체 가능 정답들
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -37,10 +38,4 @@ public class MajorUnit {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    @OneToMany(mappedBy = "majorUnit", cascade = CascadeType.ALL)
-    private List<MiddleUnit> middleUnits = new ArrayList<>();
-
-    @OneToMany(mappedBy = "majorUnit")
-    private List<Problem> problems = new ArrayList<>();
 }

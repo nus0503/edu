@@ -1,4 +1,5 @@
-package com.company.edu.entity;
+package com.company.edu.entity.problem;
+
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,27 +10,26 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
-@Table(name = "subjective_answers")
+@Table(name = "minor_units")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class SubjectiveAnswer {
+public class MinorUnit {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @OneToOne
-    @JoinColumn(name = "problem_id", nullable = false)
-    private Problem problem;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "middle_unit_id", nullable = false)
+    private MiddleUnit middleUnit;
 
-    @Column(name = "correct_answer", columnDefinition = "TEXT")
-    private String correctAnswer;
-
-    @Column(name = "alternative_answers", columnDefinition = "TEXT")
-    private String alternativeAnswers; // JSON 형식의 대체 가능 정답들
+    @Column(nullable = false)
+    private String name;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -38,4 +38,8 @@ public class SubjectiveAnswer {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+
+    @OneToMany(mappedBy = "minorUnit")
+    private List<Problem> problems = new ArrayList<>();
 }
