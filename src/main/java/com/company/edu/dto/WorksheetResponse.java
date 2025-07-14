@@ -1,6 +1,5 @@
 package com.company.edu.dto;
 
-import com.company.edu.entity.Worksheet;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -14,10 +13,10 @@ public class WorksheetResponse {
     @Data
     public static class WorksheetStatistics {
         private int totalProblems;
-        private int multipleChoice;
-        private int subjective;
-        private int shortAnswer;
-        private double nationalAverageCorrectRate;
+        private int multipleChoice; //객관식 갯수
+        private int subjective; //주관식 갯수
+        private int shortAnswer; //선다식 갯수
+        private double nationalAverageCorrectRate; //통계
         private DifficultyDistribution difficultyDistribution;
     }
 

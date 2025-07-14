@@ -1,12 +1,13 @@
 // ProblemDTO.java - 수정된 버전
 package com.company.edu.dto;
 
+import com.company.edu.entity.problem.Problem;
 import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
 public class ProblemDTO {
-    private Integer id;
+    private Long id;
     private String problemType;
     private String difficulty;
     private String unitName;
@@ -16,8 +17,20 @@ public class ProblemDTO {
     private Double correctRate;
     private String trend;
 
+    public ProblemDTO(Problem problem) {
+        this.id = problem.getId();
+        this.problemType = problem.getProblemType().name();
+        this.difficulty = problem.getDifficulty();
+        this.unitName = problem.getMinorUnit().getName();
+        this.problemImagePath = convertToWebPath(problem.getImagePath());
+        this.solution = problem.getSolution();
+        this.hint = problem.getHint();
+        this.correctRate = problem.getProblemStats().getCorrectRate() != null ? problem.getProblemStats().getCorrectRate().doubleValue() : 0.0;
+        this.trend = "기본";
+    }
+
     // BigDecimal correctRate를 받는 생성자
-    public ProblemDTO(Integer id, String problemType, String difficulty,
+    public ProblemDTO(Long id, String problemType, String difficulty,
                       String unitName, String imagePath, String solution,
                       String hint, BigDecimal correctRate, String trend) {
         this.id = id;
@@ -32,7 +45,7 @@ public class ProblemDTO {
     }
 
     // Double correctRate를 받는 생성자
-    public ProblemDTO(Integer id, String problemType, String difficulty,
+    public ProblemDTO(Long id, String problemType, String difficulty,
                       String unitName, String imagePath, String solution,
                       String hint, Double correctRate, String trend) {
         this.id = id;
@@ -47,7 +60,7 @@ public class ProblemDTO {
     }
 
     // Integer correctRate를 받는 생성자 (JPQL에서 int로 인식하는 경우)
-    public ProblemDTO(Integer id, String problemType, String difficulty,
+    public ProblemDTO(Long id, String problemType, String difficulty,
                       String unitName, String imagePath, String solution,
                       String hint, Integer correctRate, String trend) {
         this.id = id;

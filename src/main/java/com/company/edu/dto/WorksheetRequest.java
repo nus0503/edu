@@ -38,6 +38,15 @@ public class WorksheetRequest {
         private String selectedDifficulty;
 
         private String contentRange;
+
+        private List<ProblemOrder> problemOrders;
+        @Data
+        public static class ProblemOrder {
+            private Long problemId;
+            private Integer order;
+        }
+
+
     }
 }
 

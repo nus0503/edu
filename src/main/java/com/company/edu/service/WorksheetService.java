@@ -1,21 +1,23 @@
 package com.company.edu.service;
 
+import com.company.edu.common.code.error.CommonErrorCode;
 import com.company.edu.common.code.error.UserErrorCode;
+import com.company.edu.common.code.error.WorksheetErrorCode;
 import com.company.edu.common.customException.RestApiException;
 import com.company.edu.config.user.CustomUserDetails;
 import com.company.edu.dto.ProblemDTO;
 import com.company.edu.dto.WorksheetRequest;
 import com.company.edu.dto.WorksheetResponse;
 import com.company.edu.dto.user.CustomUserInfoDto;
-import com.company.edu.entity.Semesters;
-import com.company.edu.entity.Worksheet;
+import com.company.edu.entity.problem.Problem;
+import com.company.edu.entity.problem.Semesters;
+import com.company.edu.entity.worksheet.Worksheet;
 import com.company.edu.entity.user.Member;
-import com.company.edu.repository.MinorUnitRepository;
-import com.company.edu.repository.ProblemRepository;
-import com.company.edu.repository.SemesterRepository;
-import com.company.edu.repository.WorksheetRepository;
+import com.company.edu.entity.worksheet.WorksheetProblem;
+import com.company.edu.repository.*;
 import com.company.edu.repository.user.MemberRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,12 +27,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
+@Slf4j
 public class WorksheetService {
 
 
@@ -42,6 +46,7 @@ public class WorksheetService {
 
     private final WorksheetRepository worksheetRepository;
     private final MemberRepository memberRepository;
+    private final WorksheetProblemRepository worksheetProblemRepository;
 
     public WorksheetResponse generateWorksheet(WorksheetRequest request) {
         // 1. 선택된 경로들에서 소단원명들 추출
@@ -163,7 +168,7 @@ public class WorksheetService {
         List<ProblemDTO> additionalProblems = new ArrayList<>();
 
         // 이미 선택된 문제 ID 목록
-        Set<Integer> selectedIds = alreadySelected.stream()
+        Set<Long> selectedIds = alreadySelected.stream()
                 .map(ProblemDTO::getId)
                 .collect(Collectors.toSet());
 
@@ -299,7 +304,21 @@ public class WorksheetService {
             throw new RestApiException(UserErrorCode.NOT_ACCESS_AUTHORITY);
         }
         Worksheet worksheet = Worksheet.generateEntity(request, findMember);
-        worksheetRepository.save(worksheet);
+        Worksheet savedWorksheet = worksheetRepository.save(worksheet);
+
+        List<WorksheetProblem> worksheetProblems = new ArrayList<>();
+        for (WorksheetRequest.WorksheetCreateRequest.ProblemOrder problemOrder : request.getProblemOrders()) {
+            Problem problem = problemRepository.findById(problemOrder.getProblemId()).orElseThrow(() -> new RestApiException(CommonErrorCode.RESOURCE_NOT_FOUND));
+
+            WorksheetProblem build = WorksheetProblem.builder()
+                    .worksheet(savedWorksheet)
+                    .problem(problem)
+                    .problemOrder(problemOrder.getOrder())
+                    .build();
+
+            worksheetProblems.add(build);
+        }
+        worksheetProblemRepository.saveAll(worksheetProblems);
     }
 
     public WorksheetResponse.WorksheetListResponse getWorksheet(String page, String size) {
@@ -355,5 +374,75 @@ public class WorksheetService {
         return WorksheetResponse.WorksheetListResponse.builder()
                 .data(data)
                 .build();
+    }
+
+    /**
+     * 학습지 조회
+     */
+    @Transactional(readOnly = true)
+    public Worksheet getWorksheetById(Long worksheetId) {
+        return worksheetRepository.findById(worksheetId)
+                .orElseThrow(() -> new RestApiException(WorksheetErrorCode.WORKSHEET_NOT_FOUND));
+    }
+
+
+
+    /**
+     * 학습지의 문제들을 순서대로 조회
+     */
+    @Transactional
+    public List<WorksheetProblem> getWorksheetProblemsOrdered(Long worksheetId) {
+        Worksheet worksheet = getWorksheetById(worksheetId);
+        List<WorksheetProblem> byWorksheetOrderByProblemOrderAsc = worksheetProblemRepository.findByWorksheetOrderByProblemOrderAsc(worksheet);
+        for (WorksheetProblem worksheetProblem : byWorksheetOrderByProblemOrderAsc) {
+            worksheetProblem.getProblem().getId();
+        }
+        return byWorksheetOrderByProblemOrderAsc;
+    }
+
+    @Transactional
+    public WorksheetResponse getSavedWorksheetProblem(Long worksheetId) {
+        Worksheet worksheet = worksheetRepository.findById(worksheetId).orElseThrow(
+                () -> new RestApiException(WorksheetErrorCode.WORKSHEET_NOT_FOUND)
+        );
+        List<WorksheetProblem> allById = worksheetProblemRepository.findAllByWorksheet(worksheet);
+
+        List<ProblemDTO> problems = new ArrayList<>();
+        allById.stream().map(WorksheetProblem::getProblem).forEach(problem -> {
+            int i = 1;
+            log.debug("i = {}", i);
+            String name = problem.getMinorUnit().getName();
+            BigDecimal correctRate = problem.getProblemStats().getCorrectRate();
+            problems.add(new ProblemDTO(problem));
+        });
+
+        WorksheetResponse.WorksheetStatistics statistics = new WorksheetResponse.WorksheetStatistics();
+
+        // 기본 통계
+        statistics.setTotalProblems(problems.size());
+        statistics.setMultipleChoice((int) problems.stream().filter(p -> "객관식".equals(p.getProblemType())).count());
+        statistics.setSubjective((int) problems.stream().filter(p -> "주관식".equals(p.getProblemType())).count());
+        statistics.setShortAnswer((int) problems.stream().filter(p -> "서술형".equals(p.getProblemType())).count());
+
+        // 실제 ProblemStats에서 평균 정답률 계산
+        Double avgCorrectRate = null;
+//        avgCorrectRate = problemRepository.getAverageCorrectRateByUnits(unitNames);
+        statistics.setNationalAverageCorrectRate(avgCorrectRate != null ? avgCorrectRate : 75.0);
+
+        // 실제 선택된 문제들의 난이도별 분포 (실제 개수)
+        WorksheetResponse.DifficultyDistribution distribution = new WorksheetResponse.DifficultyDistribution();
+        distribution.setLow((int) problems.stream().filter(p -> "하".equals(p.getDifficulty())).count());
+        distribution.setMediumLow((int) problems.stream().filter(p -> "중하".equals(p.getDifficulty())).count());
+        distribution.setMedium((int) problems.stream().filter(p -> "중".equals(p.getDifficulty())).count());
+        distribution.setHigh((int) problems.stream().filter(p -> "상".equals(p.getDifficulty())).count());
+        distribution.setVeryHigh((int) problems.stream().filter(p -> "최상".equals(p.getDifficulty())).count());
+
+        statistics.setDifficultyDistribution(distribution);
+
+        WorksheetResponse worksheetResponse = new WorksheetResponse();
+        worksheetResponse.setProblems(problems);
+        worksheetResponse.setStatistics(statistics);
+        return worksheetResponse;
+//        problemRepository.findSavedWorksheetProblem()
     }
 }
