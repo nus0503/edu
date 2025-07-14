@@ -38,6 +38,10 @@ dependencies {
 	//ModelMapper
 	implementation 'org.modelmapper:modelmapper:3.2.4'
 
+	//pdf
+	implementation 'com.itextpdf:itext7-core:7.2.5'
+	implementation 'com.itextpdf:font-asian:7.2.5'
+
 	testAnnotationProcessor 'org.projectlombok:lombok'
 
 	testImplementation 'org.projectlombok:lombok'
