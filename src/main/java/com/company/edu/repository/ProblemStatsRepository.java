@@ -1,6 +1,6 @@
 package com.company.edu.repository;
 
-import com.company.edu.entity.ProblemStats;
+import com.company.edu.entity.problem.ProblemStats;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

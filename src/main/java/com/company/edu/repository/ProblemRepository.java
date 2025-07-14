@@ -1,7 +1,7 @@
 package com.company.edu.repository;
 
 import com.company.edu.dto.ProblemDTO;
-import com.company.edu.entity.Problem;
+import com.company.edu.entity.problem.Problem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface ProblemRepository extends JpaRepository<Problem, Integer> {
+public interface ProblemRepository extends JpaRepository<Problem, Long> {
 
     @Query("SELECT new com.company.edu.dto.ProblemDTO(" +
             "p.id, " +
@@ -49,4 +49,8 @@ public interface ProblemRepository extends JpaRepository<Problem, Integer> {
 
     @Query("SELECT AVG(ps.correctRate) FROM Problem p LEFT JOIN p.problemStats ps WHERE p.minorUnit.name IN :unitNames")
     Double getAverageCorrectRateByUnits(@Param("unitNames") List<String> unitNames);
+
+
+//    @Query("SELECT Problem FROM Problem p WHERE p.id IN ")
+//    List<Problem> findSavedWorksheetProblem(@Param("problemId") Long problemId);
 }
