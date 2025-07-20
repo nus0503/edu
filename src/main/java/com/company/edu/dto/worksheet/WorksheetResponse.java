@@ -1,4 +1,4 @@
-package com.company.edu.dto;
+package com.company.edu.dto.worksheet;
 
 import lombok.*;
 
@@ -9,6 +9,7 @@ import java.util.List;
 public class WorksheetResponse {
     private List<ProblemDTO> problems;
     private WorksheetStatistics statistics;
+    private WorksheetSettingResponseDto setting;
 
     @Data
     public static class WorksheetStatistics {
@@ -69,6 +70,23 @@ public class WorksheetResponse {
                 private String contentRange;
                 private LocalDateTime createdAt;
             }
+        }
+    }
+    @Data
+    public static class AddNewProblemsResponseDto {
+        private List<ProblemDTO> problems;
+        private PageInfo pageInfo;
+
+        @Data
+        public static class PageInfo {
+            private int currentPage;
+            private int pageSize;
+            private long totalElements;
+            private int totalPages;
+            private boolean hasNext;
+            private boolean hasPrevious;
+            private boolean isFirst;
+            private boolean isLast;
         }
     }
 }

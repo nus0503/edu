@@ -5,9 +5,7 @@ import com.company.edu.common.code.error.UserErrorCode;
 import com.company.edu.common.code.error.WorksheetErrorCode;
 import com.company.edu.common.customException.RestApiException;
 import com.company.edu.config.user.CustomUserDetails;
-import com.company.edu.dto.ProblemDTO;
-import com.company.edu.dto.WorksheetRequest;
-import com.company.edu.dto.WorksheetResponse;
+import com.company.edu.dto.worksheet.*;
 import com.company.edu.dto.user.CustomUserInfoDto;
 import com.company.edu.entity.problem.Problem;
 import com.company.edu.entity.problem.Semesters;
@@ -50,7 +48,14 @@ public class WorksheetService {
 
     public WorksheetResponse generateWorksheet(WorksheetRequest request) {
         // 1. 선택된 경로들에서 소단원명들 추출
-        List<String> unitNames = extractUnitNames(request.getSelectedPaths());
+//        List<String> unitNames = extractUnitNames(request.getSelectedPaths());
+
+        List<Long> minorUnitIds = request.getMinorUnitIds();
+
+        if (minorUnitIds == null || minorUnitIds.isEmpty()) {
+            throw new RestApiException(CommonErrorCode.RESOURCE_NOT_FOUND);
+        }
+
 
         // 2. levelWeight를 기반으로 난이도별 문제 개수 계산
         Map<String, Integer> difficultyTargets = calculateDifficultyTargets(
@@ -61,13 +66,14 @@ public class WorksheetService {
         // 3. 문제 타입 필터
         String problemType = request.getSettings().getProblemType();
 
+
         // 4. 난이도별로 문제 조회 및 선택
         List<ProblemDTO> selectedProblems = selectProblemsByDifficulty(
-                unitNames, difficultyTargets, problemType
+                minorUnitIds, difficultyTargets, problemType
         );
 
         // 5. 통계 정보 생성
-        WorksheetResponse.WorksheetStatistics statistics = generateStatistics(unitNames, selectedProblems);
+        WorksheetResponse.WorksheetStatistics statistics = generateStatistics(minorUnitIds, selectedProblems);
 
         // 6. 응답 생성
         WorksheetResponse response = new WorksheetResponse();
@@ -76,6 +82,69 @@ public class WorksheetService {
 
         return response;
     }
+
+
+    public WorksheetResponse.AddNewProblemsResponseDto addNewProblems(WorksheetRequest.AddNewProblemsRequestDto request) {
+        // 1. 선택된 경로들에서 소단원명들 추출
+//        List<String> unitNames = extractUnitNames(request.getSelectedPaths());
+
+        List<Long> minorUnitIds = request.getMinorUnitIds();
+
+        if (minorUnitIds == null || minorUnitIds.isEmpty()) {
+            throw new RestApiException(CommonErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+
+        // 2. 제외할 문제 ID 목록
+        Set<Long> excludeIds = request.getExcludeProblemIds() != null ? new HashSet<Long>(request.getExcludeProblemIds()) : new HashSet<Long>();
+
+        // 3. 문제 타입 필터
+        String problemType = request.getSettings().getProblemType();
+
+        // 4. 페이징 정보 설정
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+
+        // 5. 전체 이용 가능한 문제 수 조회 (제외 문제 제외)
+        int totalAvailableProblems = problemRepository.countAvailableProblemsExcluding(minorUnitIds, problemType, excludeIds);
+
+
+        Map<String, Integer> stringIntegerMap = calculateDifficultyTargets(request.getSize(), request.getSettings().getLevelWeight());
+
+
+        List<ProblemDTO> availableProblems  = problemRepository.findProblemsByUnitsAndFiltersExcludingWithPaging(minorUnitIds, null, problemType, excludeIds, pageable);
+
+        // 7. 요청된 문제 수만큼 선택 (페이징된 결과에서)
+        int selectCount = Math.min(request.getProblemCount(), availableProblems.size());
+
+        List<ProblemDTO> selectedProblems = new ArrayList<>();
+
+        Collections.shuffle(availableProblems); // 랜덤 섞기
+        selectedProblems = availableProblems.subList(0, selectCount);
+
+        // 8. 페이징 정보 생성
+        int totalPages = (int) Math.ceil((double) totalAvailableProblems / request.getSize());
+        WorksheetResponse.AddNewProblemsResponseDto.PageInfo pageInfo =
+                new WorksheetResponse.AddNewProblemsResponseDto.PageInfo();
+        pageInfo.setCurrentPage(request.getPage());
+        pageInfo.setPageSize(request.getSize());
+        pageInfo.setTotalElements(totalAvailableProblems);
+        pageInfo.setTotalPages(totalPages);
+        pageInfo.setHasNext(request.getPage() < totalPages - 1);
+        pageInfo.setHasPrevious(request.getPage() > 0);
+        pageInfo.setFirst(request.getPage() == 0);
+        pageInfo.setLast(request.getPage() == totalPages - 1);
+
+        // 10. 응답 생성
+        WorksheetResponse.AddNewProblemsResponseDto response = new WorksheetResponse.AddNewProblemsResponseDto();
+        response.setProblems(selectedProblems);
+        response.setPageInfo(pageInfo);
+
+        return response;
+    }
+
+
+
+
 
     /**
      * levelWeight 배열을 기반으로 난이도별 목표 문제 개수 계산
@@ -111,7 +180,7 @@ public class WorksheetService {
      * 난이도별 목표에 맞춰 문제 선택
      */
     private List<ProblemDTO> selectProblemsByDifficulty(
-            List<String> unitNames,
+            List<Long> minorUnitIds,
             Map<String, Integer> difficultyTargets,
             String problemType
     ) {
@@ -124,8 +193,8 @@ public class WorksheetService {
             if (targetCount <= 0) continue;
 
             // 해당 난이도의 문제들 조회
-            List<ProblemDTO> availableProblems = problemRepository.findProblemsByUnitsAndFilters(
-                    unitNames,
+            List<ProblemDTO> availableProblems = problemRepository.findProblemsByUnitIdsAndFilters(
+                    minorUnitIds,
                     Collections.singletonList(difficulty),
                     problemType
             );
@@ -150,7 +219,7 @@ public class WorksheetService {
         int totalTarget = difficultyTargets.values().stream().mapToInt(Integer::intValue).sum();
 
         if (totalSelected < totalTarget) {
-            selectedProblems.addAll(fillShortage(unitNames, problemType, totalTarget - totalSelected, selectedProblems));
+            selectedProblems.addAll(fillShortage(minorUnitIds, problemType, totalTarget - totalSelected, selectedProblems));
         }
 
         return selectedProblems;
@@ -160,7 +229,7 @@ public class WorksheetService {
      * 부족한 문제를 다른 난이도에서 보충
      */
     private List<ProblemDTO> fillShortage(
-            List<String> unitNames,
+            List<Long> minorUnitIds,
             String problemType,
             int shortage,
             List<ProblemDTO> alreadySelected
@@ -173,8 +242,8 @@ public class WorksheetService {
                 .collect(Collectors.toSet());
 
         // 모든 문제 조회 (난이도 제한 없음)
-        List<ProblemDTO> allAvailable = problemRepository.findProblemsByUnitsAndFilters(
-                unitNames, null, problemType
+        List<ProblemDTO> allAvailable = problemRepository.findProblemsByUnitIdsAndFilters(
+                minorUnitIds, null, problemType
         );
 
         // 이미 선택된 문제 제외
@@ -248,10 +317,11 @@ public class WorksheetService {
     }
 
     private List<String> getUnitNamesByMiddleUnit(String middleUnitName) {
-        return minorUnitRepository.findByMiddleUnitName(middleUnitName)
+        List<String> collect = minorUnitRepository.findByMiddleUnitName(middleUnitName)
                 .stream()
                 .map(mu -> mu.getName())
                 .collect(Collectors.toList());
+        return collect;
     }
 
     private Semesters.GradeLevel parseGradeLevel(String gradeStr) {
@@ -263,7 +333,7 @@ public class WorksheetService {
         }
     }
 
-    private WorksheetResponse.WorksheetStatistics generateStatistics(List<String> unitNames, List<ProblemDTO> problems) {
+    private WorksheetResponse.WorksheetStatistics generateStatistics(List<Long> minorUnitIds, List<ProblemDTO> problems) {
         WorksheetResponse.WorksheetStatistics statistics = new WorksheetResponse.WorksheetStatistics();
 
         // 기본 통계
@@ -273,7 +343,7 @@ public class WorksheetService {
         statistics.setShortAnswer((int) problems.stream().filter(p -> "서술형".equals(p.getProblemType())).count());
 
         // 실제 ProblemStats에서 평균 정답률 계산
-        Double avgCorrectRate = problemRepository.getAverageCorrectRateByUnits(unitNames);
+        Double avgCorrectRate = problemRepository.getAverageCorrectRateByUnits(minorUnitIds);
         statistics.setNationalAverageCorrectRate(avgCorrectRate != null ? avgCorrectRate : 75.0);
 
         // 실제 선택된 문제들의 난이도별 분포 (실제 개수)
@@ -405,7 +475,7 @@ public class WorksheetService {
         Worksheet worksheet = worksheetRepository.findById(worksheetId).orElseThrow(
                 () -> new RestApiException(WorksheetErrorCode.WORKSHEET_NOT_FOUND)
         );
-        List<WorksheetProblem> allById = worksheetProblemRepository.findAllByWorksheet(worksheet);
+        List<WorksheetProblem> allById = worksheetProblemRepository.findAllByWorksheetOrderByProblemOrderAsc(worksheet);
 
         List<ProblemDTO> problems = new ArrayList<>();
         allById.stream().map(WorksheetProblem::getProblem).forEach(problem -> {
@@ -439,10 +509,55 @@ public class WorksheetService {
 
         statistics.setDifficultyDistribution(distribution);
 
+        WorksheetSettingResponseDto setting = new WorksheetSettingResponseDto(worksheet.getProblemCount(), worksheet.getDifficulty(), worksheet.getProblemType(), worksheet.getAutoGrading(), worksheet.getMockExamIncluded());
+
         WorksheetResponse worksheetResponse = new WorksheetResponse();
         worksheetResponse.setProblems(problems);
         worksheetResponse.setStatistics(statistics);
+        worksheetResponse.setSetting(setting);
         return worksheetResponse;
 //        problemRepository.findSavedWorksheetProblem()
+    }
+    @Transactional
+    public void updateWorksheet(Long worksheetId, UpdateWorksheetRequestDto request) {
+
+        // 1. 현재 사용자 정보 확인 (권한 체크)
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RestApiException(UserErrorCode.NOT_ACCESS_AUTHORITY);
+        }
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        Long currentUserId = userDetails.getMember().getMemberId();
+
+        // 2. 학습지 조회 및 작성자 확인
+        Worksheet worksheet = worksheetRepository.findById(worksheetId)
+                .orElseThrow(() -> new RestApiException(WorksheetErrorCode.WORKSHEET_NOT_FOUND));
+
+        if (!worksheet.getAuthorId().getMemberId().equals(currentUserId)) {
+            throw new RestApiException(WorksheetErrorCode.WORKSHEET_ACCESS_DENIED);
+        }
+
+        // 3. 학습지 기본 정보 업데이트 (예: 문제 수)
+        worksheet.updateProblemCountAndDescription(request.getProblemCount());
+
+        // 4. 기존 문제 순서 정보 모두 삭제
+        worksheetProblemRepository.deleteByWorksheetId(worksheet.getWorksheetId());
+
+        // 5. 새로운 문제 순서 정보 생성 및 저장
+        List<WorksheetProblem> newWorksheetProblems = new ArrayList<>();
+        for (UpdateWorksheetRequestDto.ProblemOrder problemOrder : request.getProblemOrders()) {
+            Problem problem = problemRepository.findById(problemOrder.getProblemId())
+                    .orElseThrow(() -> new RestApiException(CommonErrorCode.RESOURCE_NOT_FOUND));
+
+            WorksheetProblem newWp = WorksheetProblem.builder()
+                    .worksheet(worksheet)
+                    .problem(problem)
+                    .problemOrder(problemOrder.getOrder())
+                    .build();
+            newWorksheetProblems.add(newWp);
+        }
+        worksheetProblemRepository.saveAll(newWorksheetProblems);
+
+        log.info("✅ 학습지 업데이트 완료: worksheetId={}", worksheetId);
     }
 }

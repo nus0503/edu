@@ -1,4 +1,4 @@
-package com.company.edu.dto;
+package com.company.edu.dto.worksheet;
 
 import lombok.Data;
 
@@ -6,7 +6,7 @@ import java.util.List;
 
 @Data
 public class UpdateWorksheetRequestDto {
-    private Long worksheetId;
+
 
     private Integer problemCount;
 

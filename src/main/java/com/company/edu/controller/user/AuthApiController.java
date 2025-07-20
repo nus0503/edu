@@ -27,7 +27,7 @@ public class AuthApiController {
     public ResponseEntity<Map<String, String>> getMemberProfile(@Valid @RequestBody LoginRequestDto request) {
         String token = this.authService.login(request);
         return ResponseEntity.ok()
-                .header("Authorization", "Bearer " + token)  // 헤더에 토큰 추가
+                .header("Authorization", token)  // 헤더에 토큰 추가
                 .body(Map.of(
                         "message", "로그인 성공",
                         "token", token  // 본문에도 토큰 포함 (백업용)

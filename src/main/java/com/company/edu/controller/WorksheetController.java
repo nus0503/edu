@@ -4,11 +4,13 @@ import com.company.edu.common.code.error.UserErrorCode;
 import com.company.edu.common.code.error.WorksheetErrorCode;
 import com.company.edu.common.customException.RestApiException;
 import com.company.edu.config.user.CustomUserDetails;
-import com.company.edu.dto.UpdateWorksheetRequestDto;
-import com.company.edu.dto.WorksheetRequest;
-import com.company.edu.dto.WorksheetResponse;
+import com.company.edu.dto.worksheet.ProblemDTO;
+import com.company.edu.dto.worksheet.UpdateWorksheetRequestDto;
+import com.company.edu.dto.worksheet.WorksheetRequest;
+import com.company.edu.dto.worksheet.WorksheetResponse;
 import com.company.edu.entity.worksheet.Worksheet;
 import com.company.edu.entity.worksheet.WorksheetProblem;
+import com.company.edu.service.ProblemService;
 import com.company.edu.service.WorksheetService;
 import com.company.edu.service.pdf.CompletePdfGenerator;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +19,6 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -41,6 +42,7 @@ public class WorksheetController {
 
     private final WorksheetService worksheetService;
     private final CompletePdfGenerator pdfGenerator;
+    private final ProblemService problemService;
 
     @PostMapping("/generate")
     public ResponseEntity<WorksheetResponse> generateWorksheet(@RequestBody WorksheetRequest request) {
@@ -51,6 +53,24 @@ public class WorksheetController {
             e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    @GetMapping("/{problemId}")
+    public ResponseEntity<ProblemDTO> getProblem(@PathVariable Long problemId) {
+        try {
+            ProblemDTO problemDetail = problemService.getProblemDetail(problemId);
+            return ResponseEntity.ok(problemDetail);
+        } catch (Exception e) {
+            log.error("문제 상세 정보 조회 실패: problemId={}", problemId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping("/add-problems")
+    public ResponseEntity<WorksheetResponse.AddNewProblemsResponseDto> addNewProblems(@RequestBody WorksheetRequest.AddNewProblemsRequestDto request) {
+
+        WorksheetResponse.AddNewProblemsResponseDto response = worksheetService.addNewProblems(request);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/save")
@@ -76,8 +96,14 @@ public class WorksheetController {
     }
 
     @PutMapping("/update/{worksheetId}")
-    public ResponseEntity<?> updateWorksheet(@PathVariable Long worksheetId, UpdateWorksheetRequestDto request) {
-        return null;
+    public ResponseEntity<?> updateWorksheet(@PathVariable Long worksheetId, @RequestBody UpdateWorksheetRequestDto request) {
+
+        worksheetService.updateWorksheet(worksheetId, request);
+
+        // 성공 응답 반환
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Worksheet updated successfully.");
+        return ResponseEntity.ok(response);
     }
 
 

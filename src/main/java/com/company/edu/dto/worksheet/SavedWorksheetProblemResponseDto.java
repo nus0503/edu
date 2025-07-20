@@ -1,4 +1,4 @@
-package com.company.edu.dto;
+package com.company.edu.dto.worksheet;
 
 import lombok.Data;
 

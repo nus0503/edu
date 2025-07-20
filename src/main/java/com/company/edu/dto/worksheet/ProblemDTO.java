@@ -1,5 +1,5 @@
 // ProblemDTO.java - 수정된 버전
-package com.company.edu.dto;
+package com.company.edu.dto.worksheet;
 
 import com.company.edu.entity.problem.Problem;
 import lombok.Data;

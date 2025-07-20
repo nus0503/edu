@@ -1,6 +1,6 @@
 package com.company.edu.entity.worksheet;
 
-import com.company.edu.dto.WorksheetRequest;
+import com.company.edu.dto.worksheet.WorksheetRequest;
 import com.company.edu.entity.user.Member;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -49,6 +49,15 @@ public class Worksheet {
     @Column(name = "difficulty")
     private String difficulty;
 
+    @Column(name = "problem_type")
+    private String problemType;
+
+    @Column(name = "mock_exam_included")
+    private String mockExamIncluded;
+
+    @Column(name = "auto_grading")
+    private Boolean autoGrading;
+
     @Column(name = "content_range", length = 200)
     private String contentRange;
 
@@ -93,19 +102,21 @@ public class Worksheet {
 
 
 
+
     public enum Difficulty {
-        하, 중하, 중, 상, 최상
+        하, 중하, 중, 상, 최상;
     }
+
 
     public enum Status {
-        ACTIVE, DELETED, DRAFT
+        ACTIVE, DELETED, DRAFT;
     }
+
 
     public enum ViewPermission {
-        PUBLIC, PRIVATE, RESTRICTED
+        PUBLIC, PRIVATE, RESTRICTED;
     }
-
-    private Worksheet(String tester, String grade, String tag, String title, String description, Integer problemCount, String difficulty, String contentRange, Boolean isNew, Boolean isRecommended, Boolean isWrongAnswer, Status status, ViewPermission viewPermission, Member author) {
+    private Worksheet(String tester, String grade, String tag, String title, String description, Integer problemCount, String difficulty, String problemType, String mockExamIncluded, Boolean autoGrading, String contentRange, Boolean isNew, Boolean isRecommended, Boolean isWrongAnswer, Status status, ViewPermission viewPermission, Member author) {
         this.tester = tester;
         this.grade = grade;
         this.tag = tag;
@@ -113,6 +124,9 @@ public class Worksheet {
         this.description = description;
         this.problemCount = problemCount;
         this.difficulty = difficulty;
+        this.problemType = problemType;
+        this.mockExamIncluded = mockExamIncluded;
+        this.autoGrading = autoGrading;
         this.contentRange = contentRange;
         this.isNew = isNew;
         this.isRecommended = isRecommended;
@@ -124,6 +138,27 @@ public class Worksheet {
 
     public static Worksheet generateEntity(WorksheetRequest.WorksheetCreateRequest dto, Member member) {
         String description = dto.getProblemCount() + "문제 | " + dto.getSelectedDifficulty() + " | " + dto.getContentRange();
-        return new Worksheet(dto.getTester(), dto.getGrade(), dto.getTag(), dto.getTitle(), description, dto.getProblemCount(), dto.getSelectedDifficulty(), dto.getContentRange(), false, false, false, Status.ACTIVE, ViewPermission.PUBLIC, member);
+        return new Worksheet(dto.getTester(),
+                dto.getGrade(),
+                dto.getTag(),
+                dto.getTitle(),
+                description,
+                dto.getProblemCount(),
+                dto.getSelectedDifficulty(),
+                dto.getSettings().getProblemType(),
+                dto.getSettings().getMockExamIncluded(),
+                dto.getSettings().isAutoGrading(),
+                dto.getContentRange(),
+                false,
+                false,
+                false,
+                Status.ACTIVE,
+                ViewPermission.PUBLIC, member);
+    }
+
+    public void updateProblemCountAndDescription(Integer problemCount) {
+        this.problemCount = problemCount;
+        this.description = problemCount + "문제 | " + this.difficulty + " | " + this.contentRange;
+
     }
 }

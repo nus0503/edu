@@ -1,18 +1,17 @@
-package com.company.edu.dto;
+package com.company.edu.dto.worksheet;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import java.util.List;
 
 @Data
 public class WorksheetRequest {
-    private List<String> selectedPaths;
+    private List<Long> minorUnitIds;
     private WorksheetSettings settings;
 
     @Data
     public static class WorksheetSettings {
         private int problemCount;
-        private String selectedDifficulty;  // 단일 선택으로 변경
+        private String difficulties;  // 단일 선택으로 변경
         private List<Integer> levelWeight;  // 난이도별 가중치 배열 [하, 중하, 중, 상, 최상]
         private String problemType; // "전체", "객관식", "주관식"
         private boolean autoGrading;
@@ -39,14 +38,25 @@ public class WorksheetRequest {
 
         private String contentRange;
 
+        private WorksheetSettings settings;
+
         private List<ProblemOrder> problemOrders;
+
         @Data
         public static class ProblemOrder {
             private Long problemId;
             private Integer order;
         }
+    }
 
-
+    @Data
+    public static class AddNewProblemsRequestDto {
+        private List<Long> minorUnitIds;
+        private WorksheetSettings settings;
+        private List<Long> excludeProblemIds;
+        private int problemCount;
+        private int page;
+        private int size;
     }
 }
 

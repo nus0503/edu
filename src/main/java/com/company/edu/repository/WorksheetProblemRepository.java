@@ -3,6 +3,7 @@ package com.company.edu.repository;
 import com.company.edu.entity.worksheet.Worksheet;
 import com.company.edu.entity.worksheet.WorksheetProblem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -38,5 +39,9 @@ public interface WorksheetProblemRepository extends JpaRepository<WorksheetProbl
     List<WorksheetProblem> findByWorksheetWithProblemFetch(@Param("worksheet") Worksheet worksheet);
 
 
-    List<WorksheetProblem> findAllByWorksheet(Worksheet worksheet);
+    List<WorksheetProblem> findAllByWorksheetOrderByProblemOrderAsc(Worksheet worksheet);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("DELETE FROM WorksheetProblem wp WHERE wp.worksheet.worksheetId = :worksheetId")
+    void deleteByWorksheetId(@Param("worksheetId") Long worksheetId);
 }
