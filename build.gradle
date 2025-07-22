@@ -1,6 +1,5 @@
 plugins {
 	id 'java'
-	id 'war'
 	id 'org.springframework.boot' version '3.5.3'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -43,8 +42,7 @@ dependencies {
 	implementation 'com.itextpdf:itext7-core:7.2.5'
 	implementation 'com.itextpdf:font-asian:7.2.5'
 
-	// 2. 내장 Tomcat을 providedRuntime으로 설정
-	providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+
 
 	testAnnotationProcessor 'org.projectlombok:lombok'
 
@@ -55,13 +53,11 @@ dependencies {
 
 }
 
+jar {
+	enabled = false
+}
+
 
 tasks.named('test') {
 	useJUnitPlatform()
-}
-
-// 생성될 WAR 파일의 이름을 지정할 수 있습니다.
-war {
-	archiveBaseName = 'my-project'
-	archiveVersion = '1.0.0'
 }
