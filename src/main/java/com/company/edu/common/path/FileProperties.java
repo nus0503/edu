@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 @Data
 public class FileProperties {
 
-    @Value( "${file.upload-dir}")
+
     private String uploadDir;
 
-    private String baseUrl = "http://localhost:8080";
+    private String baseUrl;
 }
