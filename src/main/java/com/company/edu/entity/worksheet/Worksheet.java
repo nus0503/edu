@@ -156,9 +156,12 @@ public class Worksheet {
                 ViewPermission.PUBLIC, member);
     }
 
-    public void updateProblemCountAndDescription(Integer problemCount) {
+    public void updateProblemCountAndDescription(Integer problemCount, String title, String tester, String tag) {
         this.problemCount = problemCount;
         this.description = problemCount + "문제 | " + this.difficulty + " | " + this.contentRange;
+        this.title = title;
+        this.tester = tester;
+        this.tag = tag;
 
     }
 }

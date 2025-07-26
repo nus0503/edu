@@ -4,6 +4,8 @@ import com.company.edu.entity.problem.Problem;
 import com.company.edu.entity.worksheet.Worksheet;
 import com.company.edu.entity.worksheet.WorksheetProblem;
 import com.company.edu.service.pdf.ImagePathService;
+import com.itextpdf.io.font.FontProgram;
+import com.itextpdf.io.font.FontProgramFactory;
 import com.itextpdf.io.font.PdfEncodings;
 import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.io.source.ByteArrayOutputStream;
@@ -40,8 +42,8 @@ public class CompletePdfGenerator {
     private final ImagePathService imagePathService;
 
     // 폰트 캐시 (성능 향상)
-    private static PdfFont cachedRegularFont;
-    private static PdfFont cachedBoldFont;
+    private static FontProgram cachedRegularFontProgram;
+    private static FontProgram cachedBoldFontProgram;
 
     // PDF 레이아웃 상수
     private static final float PAGE_WIDTH = PageSize.A4.getWidth();
@@ -69,7 +71,10 @@ public class CompletePdfGenerator {
             document.setMargins(MARGIN, MARGIN, MARGIN, MARGIN);
 
             PdfFont regularFont = createKoreanFont();
+
+//            cachedRegularFont = null;
             PdfFont boldFont = createKoreanBoldFont();
+//            cachedBoldFont = null;
 
             // 동적 레이아웃 매니저 생성
             ImageLayoutManager layoutManager = new ImageLayoutManager(
@@ -676,55 +681,75 @@ public class CompletePdfGenerator {
 //    }
 
     private PdfFont createKoreanFont()  {
-        if (cachedRegularFont != null) {
-            return cachedRegularFont;
-        }
         try {
-            log.debug("한글 폰트 로딩 시도...");
-
-            InputStream fontStream = getClass().getResourceAsStream("/fonts/NanumGothic.ttf");
-            if (fontStream != null) {
-                byte[] fontBytes = fontStream.readAllBytes();
-                cachedRegularFont = PdfFontFactory.createFont(fontBytes, PdfEncodings.IDENTITY_H);
-                log.info("✅ 리소스 폰트 로드 성공: NanumGothic.ttf");
-                return cachedRegularFont;
+            if (cachedRegularFontProgram == null) {
+                InputStream fontStream = getClass().getResourceAsStream("/fonts/NanumGothic.ttf");
+                if (fontStream != null) {
+                    byte[] fontBytes = fontStream.readAllBytes();
+                    cachedRegularFontProgram = FontProgramFactory.createFont(fontBytes);
+                }
             }
+            PdfFont font = PdfFontFactory.createFont(cachedRegularFontProgram, PdfEncodings.IDENTITY_H);
+            log.debug("새로운 PdfFont 생성: {}", font.hashCode());
+            return font;
 
-        } catch (Exception e) {
-            log.error("💥 폰트 생성 완전 실패", e);
-            throw new RuntimeException("폰트 생성 실패: " + e.getMessage(), e);
+        }catch (Exception e) {
+            log.error("폰트 생성 실패", e);
+            throw new RuntimeException("폰트 생성 실패", e);
         }
-        return null;
+
+
     }
 
     private PdfFont createKoreanBoldFont() throws IOException {
-        if (cachedBoldFont != null) {
-            return cachedBoldFont;
-        }
 
         try {
-            // 볼드 폰트 시도
-            try {
+            if (cachedBoldFontProgram == null) {
                 InputStream fontStream = getClass().getResourceAsStream("/fonts/NanumGothicBold.ttf");
                 if (fontStream != null) {
                     byte[] fontBytes = fontStream.readAllBytes();
-                    cachedBoldFont = PdfFontFactory.createFont(fontBytes, PdfEncodings.IDENTITY_H);
-                    log.info("✅ 볼드 폰트 로드 성공");
-                    return cachedBoldFont;
+                    cachedBoldFontProgram = FontProgramFactory.createFont(fontBytes);
                 }
-            } catch (Exception e) {
-                log.debug("볼드 폰트 로드 실패: {}", e.getMessage());
             }
+            PdfFont font = PdfFontFactory.createFont(cachedBoldFontProgram, PdfEncodings.IDENTITY_H);
+            log.debug("새로운 PdfFontBold 생성: {}", font.hashCode());
+            return font;
 
-            // 볼드 폰트 실패 시 일반 폰트 사용
-            log.warn("⚠️ 볼드 폰트 없음, 일반 폰트 사용");
-            cachedBoldFont = createKoreanFont();
-            return cachedBoldFont;
-
-        } catch (Exception e) {
-            log.error("볼드 폰트 생성 실패", e);
-            return createKoreanFont(); // 폴백
+        }catch (Exception e) {
+            log.error("폰트볼드 생성 실패", e);
+            throw new RuntimeException("폰트볼드 생성 실패", e);
         }
+
+
+
+
+//        if (cachedBoldFont != null) {
+//            return cachedBoldFont;
+//        }
+//
+//        try {
+//            // 볼드 폰트 시도
+//            try {
+//                InputStream fontStream = getClass().getResourceAsStream("/fonts/NanumGothicBold.ttf");
+//                if (fontStream != null) {
+//                    byte[] fontBytes = fontStream.readAllBytes();
+//                    cachedBoldFont = PdfFontFactory.createFont(fontBytes, PdfEncodings.IDENTITY_H);
+//                    log.info("✅ 볼드 폰트 로드 성공");
+//                    return cachedBoldFont;
+//                }
+//            } catch (Exception e) {
+//                log.debug("볼드 폰트 로드 실패: {}", e.getMessage());
+//            }
+//
+//            // 볼드 폰트 실패 시 일반 폰트 사용
+//            log.warn("⚠️ 볼드 폰트 없음, 일반 폰트 사용");
+//            cachedBoldFont = createKoreanFont();
+//            return cachedBoldFont;
+//
+//        } catch (Exception e) {
+//            log.error("볼드 폰트 생성 실패", e);
+//            return createKoreanFont(); // 폴백
+//        }
     }
 
 

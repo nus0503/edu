@@ -12,6 +12,12 @@ public class UpdateWorksheetRequestDto {
 
     private List<ProblemOrder> problemOrders;
 
+    private String title;
+
+    private String tester;
+
+    private String tag;
+
 
     @Data
     public static class ProblemOrder {

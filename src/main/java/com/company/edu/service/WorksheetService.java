@@ -471,7 +471,7 @@ public class WorksheetService {
     }
 
     @Transactional
-    public WorksheetResponse getSavedWorksheetProblem(Long worksheetId) {
+    public SavedWorksheetResponseDto getSavedWorksheetProblem(Long worksheetId) {
         Worksheet worksheet = worksheetRepository.findById(worksheetId).orElseThrow(
                 () -> new RestApiException(WorksheetErrorCode.WORKSHEET_NOT_FOUND)
         );
@@ -486,7 +486,7 @@ public class WorksheetService {
             problems.add(new ProblemDTO(problem));
         });
 
-        WorksheetResponse.WorksheetStatistics statistics = new WorksheetResponse.WorksheetStatistics();
+        SavedWorksheetResponseDto.WorksheetStatistics statistics = new SavedWorksheetResponseDto.WorksheetStatistics();
 
         // 기본 통계
         statistics.setTotalProblems(problems.size());
@@ -500,7 +500,7 @@ public class WorksheetService {
         statistics.setNationalAverageCorrectRate(avgCorrectRate != null ? avgCorrectRate : 75.0);
 
         // 실제 선택된 문제들의 난이도별 분포 (실제 개수)
-        WorksheetResponse.DifficultyDistribution distribution = new WorksheetResponse.DifficultyDistribution();
+        SavedWorksheetResponseDto.DifficultyDistribution distribution = new SavedWorksheetResponseDto.DifficultyDistribution();
         distribution.setLow((int) problems.stream().filter(p -> "하".equals(p.getDifficulty())).count());
         distribution.setMediumLow((int) problems.stream().filter(p -> "중하".equals(p.getDifficulty())).count());
         distribution.setMedium((int) problems.stream().filter(p -> "중".equals(p.getDifficulty())).count());
@@ -511,10 +511,15 @@ public class WorksheetService {
 
         WorksheetSettingResponseDto setting = new WorksheetSettingResponseDto(worksheet.getProblemCount(), worksheet.getDifficulty(), worksheet.getProblemType(), worksheet.getAutoGrading(), worksheet.getMockExamIncluded());
 
-        WorksheetResponse worksheetResponse = new WorksheetResponse();
+        SavedWorksheetResponseDto worksheetResponse = new SavedWorksheetResponseDto();
         worksheetResponse.setProblems(problems);
         worksheetResponse.setStatistics(statistics);
         worksheetResponse.setSetting(setting);
+        worksheetResponse.setAuthorId(worksheet.getAuthorId().getMemberId());
+        worksheetResponse.setTester(worksheet.getTester());
+        worksheetResponse.setTag(worksheet.getTag());
+        worksheetResponse.setTitle(worksheet.getTitle());
+
         return worksheetResponse;
 //        problemRepository.findSavedWorksheetProblem()
     }
@@ -538,7 +543,7 @@ public class WorksheetService {
         }
 
         // 3. 학습지 기본 정보 업데이트 (예: 문제 수)
-        worksheet.updateProblemCountAndDescription(request.getProblemCount());
+        worksheet.updateProblemCountAndDescription(request.getProblemCount(), request.getTitle(), request.getTester(), request.getTag());
 
         // 4. 기존 문제 순서 정보 모두 삭제
         worksheetProblemRepository.deleteByWorksheetId(worksheet.getWorksheetId());
@@ -559,5 +564,28 @@ public class WorksheetService {
         worksheetProblemRepository.saveAll(newWorksheetProblems);
 
         log.info("✅ 학습지 업데이트 완료: worksheetId={}", worksheetId);
+    }
+
+    @Transactional
+    public BulkDeleteResponseDto deleteWorksheet(List<Long> worksheetId, Long memberId) {
+        Member member = memberRepository.findById(memberId).orElseThrow(() -> new RestApiException(UserErrorCode.NOT_FOUND_USER));
+        List<Long> successList = new ArrayList<>();
+        List<Long> failedList = new ArrayList<>(worksheetId);
+        BulkDeleteResponseDto bulkDeleteResponseDto = new BulkDeleteResponseDto();
+
+        for (Long id : worksheetId) {
+            Worksheet worksheet = worksheetRepository.findById(id).orElseThrow(() -> new RestApiException(WorksheetErrorCode.WORKSHEET_NOT_FOUND));
+            if (!worksheet.getAuthorId().getMemberId().equals(member.getMemberId())) {
+                throw new RestApiException(WorksheetErrorCode.WORKSHEET_ACCESS_DENIED);
+            }
+            worksheetRepository.delete(worksheet);
+            successList.add(id);
+            failedList.remove(id);
+            bulkDeleteResponseDto.setSuccessIds(successList);
+            bulkDeleteResponseDto.setFailedIds(failedList);
+        }
+        return bulkDeleteResponseDto;
+
+
     }
 }

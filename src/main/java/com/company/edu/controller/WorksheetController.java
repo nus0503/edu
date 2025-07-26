@@ -1,13 +1,11 @@
 package com.company.edu.controller;
 
+import com.company.edu.common.code.error.CommonErrorCode;
 import com.company.edu.common.code.error.UserErrorCode;
 import com.company.edu.common.code.error.WorksheetErrorCode;
 import com.company.edu.common.customException.RestApiException;
 import com.company.edu.config.user.CustomUserDetails;
-import com.company.edu.dto.worksheet.ProblemDTO;
-import com.company.edu.dto.worksheet.UpdateWorksheetRequestDto;
-import com.company.edu.dto.worksheet.WorksheetRequest;
-import com.company.edu.dto.worksheet.WorksheetResponse;
+import com.company.edu.dto.worksheet.*;
 import com.company.edu.entity.worksheet.Worksheet;
 import com.company.edu.entity.worksheet.WorksheetProblem;
 import com.company.edu.service.ProblemService;
@@ -66,6 +64,25 @@ public class WorksheetController {
         }
     }
 
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteResponseDto> deleteWorksheet(@RequestBody BulkDeleteRequestDto request, Authentication authentication) {
+
+        try {
+            if (request.getIds() == null || request.getIds().isEmpty()) {
+                throw new RestApiException(CommonErrorCode.RESOURCE_NOT_FOUND);
+            }
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            Long memberId = userDetails.getMember().getMemberId();
+            BulkDeleteResponseDto result = worksheetService.deleteWorksheet(request.getIds(), memberId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("워크시트 일괄 삭제 실패", e);
+            throw new RestApiException(CommonErrorCode.RESOURCE_NOT_FOUND);
+
+        }
+
+    }
+
     @PostMapping("/add-problems")
     public ResponseEntity<WorksheetResponse.AddNewProblemsResponseDto> addNewProblems(@RequestBody WorksheetRequest.AddNewProblemsRequestDto request) {
 
@@ -90,8 +107,8 @@ public class WorksheetController {
 
 
     @GetMapping("/get/{worksheetId}")
-    public ResponseEntity<WorksheetResponse> getSavedWorksheetProblem(@PathVariable Long worksheetId) {
-        WorksheetResponse savedWorksheetProblem = worksheetService.getSavedWorksheetProblem(worksheetId);
+    public ResponseEntity<SavedWorksheetResponseDto> getSavedWorksheetProblem(@PathVariable Long worksheetId) {
+        SavedWorksheetResponseDto savedWorksheetProblem = worksheetService.getSavedWorksheetProblem(worksheetId);
         return ResponseEntity.ok(savedWorksheetProblem);
     }
 
