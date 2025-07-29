@@ -3,9 +3,7 @@ package com.company.edu.service.user;
 import com.company.edu.common.code.error.UserErrorCode;
 import com.company.edu.common.customException.RestApiException;
 import com.company.edu.config.user.CustomUserDetails;
-import com.company.edu.dto.user.CustomUserInfoDto;
-import com.company.edu.dto.user.LoginRequestDto;
-import com.company.edu.dto.user.SignUpRequestDto;
+import com.company.edu.dto.user.*;
 import com.company.edu.entity.user.Member;
 import com.company.edu.entity.user.RoleType;
 import com.company.edu.repository.user.MemberRepository;
@@ -73,4 +71,18 @@ public class AuthServiceImpl implements AuthService{
         return memberRepository.save(member).getMemberId();
     }
 
+
+    @Override
+    public String searchId(SearchIdRequestDto dto) {
+        Member member = memberRepository.findByNameAndPhoneNumber(dto.getName(), dto.getPhoneNumber())
+                .orElseThrow(() -> new RestApiException(UserErrorCode.NOT_FOUND_USER));
+
+        return member.getEmail();
+    }
+
+    @Override
+    public String searchPwd(SearchPwdRequestDto dto) {
+
+        return "";
+    }
 }

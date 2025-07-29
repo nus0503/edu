@@ -1,9 +1,9 @@
 package com.company.edu.controller.user;
 
 import com.company.edu.config.user.CustomUserDetails;
-import com.company.edu.dto.user.CustomUserInfoDto;
-import com.company.edu.dto.user.LoginRequestDto;
-import com.company.edu.dto.user.SignUpRequestDto;
+import com.company.edu.dto.auth.PasswordResetRequest;
+import com.company.edu.dto.user.*;
+import com.company.edu.service.auth.PasswordResetService;
 import com.company.edu.service.user.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +22,8 @@ import java.util.Map;
 public class AuthApiController {
 
     private final AuthService authService;
+
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> getMemberProfile(@Valid @RequestBody LoginRequestDto request) {
@@ -67,5 +69,23 @@ public class AuthApiController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body("사용자 정보 조회 중 오류가 발생했습니다.");
         }
+    }
+
+    @GetMapping("/search_id")
+    public String searchId(@RequestBody SearchIdRequestDto request) {
+        return authService.searchId(request);
+    }
+
+    @PostMapping("/search_pwd")
+    public ResponseEntity<Void> forgotPassword(@RequestBody SearchPwdRequestDto request) {
+        passwordResetService.initiatePasswordReset(request);
+        // 항상 200 OK를 반환하여 이메일 존재 여부 추측 방지
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reset")
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.ok("비밀번호가 성공적으로 변경되었습니다.");
     }
 }
