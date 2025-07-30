@@ -20,6 +20,7 @@ import java.util.UUID;
 
 @Slf4j
 @Component
+@Getter
 public class JwtUtil {
 
     private final Key key;

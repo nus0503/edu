@@ -29,10 +29,10 @@ public class CustomAuthenticationEntryPointHandler implements AuthenticationEntr
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {
         log.error("인증되지 않은 요청", authException);
 
-        ErrorResponse errorResponse = new ErrorResponse(Integer.toString(HttpStatus.UNAUTHORIZED.value()), authException.getMessage());
+        ErrorResponse errorResponse = new ErrorResponse(Integer.toString(HttpStatus.FORBIDDEN.value()), authException.getMessage());
         String responseBody = objectMapper.writeValueAsString(errorResponse);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setStatus(HttpStatus.FORBIDDEN.value());
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write(responseBody);
     }
